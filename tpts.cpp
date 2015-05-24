@@ -15,47 +15,12 @@ vector<Coordinate> shape_map;
 void generate_shape_map()
 {
     //12 positions on the imaginary grid. Map them to xy coordinates
-    shape_map.resize(12);
-    for (int i = 0; i < 12; i++)
+    shape_map.resize(16);
+    for (int j = 0; j < 4; j++)
     {
-        switch (i)
+        for (int i = 0; i < 4; i++)
         {
-            case 0:
-                shape_map[0] = Coordinate({-1,2});
-                break;
-            case 1:
-                shape_map[1] = Coordinate({1,2});
-                break;
-            case 2:
-                shape_map[2] = Coordinate({-2,1});
-                break;
-            case 3:
-                shape_map[3] = Coordinate({-1,1});
-                break;
-            case 4:
-                shape_map[4] = Coordinate({1,1});
-                break;
-            case 5:
-                shape_map[5] = Coordinate({2,1});
-                break;
-            case 6:
-                shape_map[6] = Coordinate({-2,-1});
-                break;
-            case 7:
-                shape_map[7] = Coordinate({-1,-1});
-                break;
-            case 8:
-                shape_map[8] = Coordinate({1,-1});
-                break;
-            case 9:
-                shape_map[9] = Coordinate({2,-1});
-                break;
-            case 10:
-                shape_map[10] = Coordinate({-1,-2});
-                break;
-            case 11:
-                shape_map[11] = Coordinate({1,-2});
-                break;
+            shape_map[j*4 + i] = Coordinate({i, j});
         }
     }
 }
@@ -63,24 +28,40 @@ void generate_shape_map()
 class Shape
 {
     private:
-        vector<Coordinate> layout;
+        static char _current_colour;
+        vector<Coordinate> _layout;
+        char _colour;
+    
+        static void NextColour()
+        {
+            if (_current_colour == 'r')
+                _current_colour = 'b';
+            else if (_current_colour == 'b')
+                _current_colour = 'g';
+            else if (_current_colour == 'g')
+                _current_colour = 'y';
+            else if (_current_colour == 'y')
+                _current_colour = 'r';
+        }
 
     public:
-        Shape(const string& line)
+        Shape(const string& line) :
+            _colour(_current_colour)
         {
             stringstream ss(line);
             int a, b, c, d;
             ss >> a >> b >> c >> d;
-            layout.push_back(shape_map[a]);
-            layout.push_back(shape_map[b]);
-            layout.push_back(shape_map[c]);
-            layout.push_back(shape_map[d]);
-
+            _layout.push_back(shape_map[a]);
+            _layout.push_back(shape_map[b]);
+            _layout.push_back(shape_map[c]);
+            _layout.push_back(shape_map[d]);
+            NextColour();
         }
+
 
         void Rotate90()
         {
-            for (auto& elem : layout)
+            for (auto& elem : _layout)
             {
                 int temp = elem[0];
                 elem[0] = -1 * elem[1];
@@ -90,17 +71,24 @@ class Shape
         
         const Coordinate& GetCoord(int i) const
         {
-            return layout[i];
+            return _layout[i];
+        }
+
+        char GetColour() const
+        {
+            return _colour;
         }
 
         void Print() const
         {
-            for (auto elem : layout)
+            for (auto elem : _layout)
             {
                 cout << "(" << elem[0] << "," << elem[1] << ") ";
             }
         }
 };
+
+char Shape::_current_colour = 'r';
 
 class Grid
 {
@@ -128,14 +116,53 @@ class Grid
         {
             int i,j;
             int k = 0;
-            for (i = 0; i < _width; i++)
+            bool fits = false;
+            for (j = 0; j < _height; j++)
             {
-                for (j = 0; j < _height; j++)
+                for (i = 0; i < _width; i++)
                 {
-                    if (_grid[i][j] == '*')
+                    fits = false;
+                    for (k = 0; k < 4; k++)
                     {
+                        //get block from shape
                         Coordinate c(s.GetCoord(k));
+
+                        //check if it lies outside the grid
+                        int l = c[0];
+                        int m = c[1];
+                        cout << "l = " << l << " m =  " << m << endl;
+                        if (l < 0 || l > _width || m < 0 || m > _height)
+                        {
+                            fits = false;
+                            break;
+                        }
                         
+                        cout << "in bounds" << endl;
+
+                        //check that this grid spot is empty
+                        if (_grid[l][m] != '*')
+                        {
+                            fits = false;
+                            break;
+                        }
+                        
+                        cout << "spot is empty" << endl;
+
+                        fits = true;
+                    }
+
+                    if (fits)
+                    {
+                        //if we get here the shape fits so mark the spaces in 
+                        //the grid as occupied.
+                        for (k = 0; k < 4; k++)
+                        {
+                            //get block from shape
+                            Coordinate c(s.GetCoord(k));
+                            int l = c[0];
+                            int m = c[1];
+                            _grid[l][m] = s.GetColour();
+                        }
                     }
                 }
             }
@@ -164,9 +191,16 @@ void print_shapes(const vector<Shape>& shapes)
     }
 }
 
-void search(const vector<Shape>& shapes)
+bool find_tesselation(Grid& grid, const vector<Shape>& shapes)
 {
-
+    for (const auto& shape : shapes)
+    {
+        if (!grid.Insert(shape))
+        {
+            return false;
+        }
+    }
+    return true;
 }
 
 int main(int argc, char* argv[])
@@ -194,5 +228,9 @@ int main(int argc, char* argv[])
     }
 
     Grid grid(width, height);
+    if (find_tesselation(grid, shapes))
+        cout << "Solution found:" << endl;
+    else
+        cout << "No solution:" << endl;
     grid.Print();
 }
