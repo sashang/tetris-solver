@@ -71,6 +71,7 @@ class Shape
         
         const Coordinate& GetCoord(int i) const
         {
+            const Coordinate& c(_layout[i]);
             return _layout[i];
         }
 
@@ -128,10 +129,10 @@ class Grid
                         Coordinate c(s.GetCoord(k));
 
                         //check if it lies outside the grid
-                        int l = c[0];
-                        int m = c[1];
-                        cout << "l = " << l << " m =  " << m << endl;
-                        if (l < 0 || l > _width || m < 0 || m > _height)
+                        int l = c[0] + i;
+                        int m = c[1] + j;
+                        cout  << " l = " << l << " m =  " << m << endl;
+                        if (l < 0 || l > _width - 1  || m < 0 || m > _height - 1)
                         {
                             fits = false;
                             break;
@@ -159,18 +160,22 @@ class Grid
                         {
                             //get block from shape
                             Coordinate c(s.GetCoord(k));
-                            int l = c[0];
-                            int m = c[1];
+                            int l = c[0] + i;
+                            int m = c[1] + j;
                             _grid[l][m] = s.GetColour();
                         }
+                        return true;
                     }
                 }
             }
+            return false;
         }
 
         void Print() const
         {
-            for (int j = 0; j < _height; j++)
+            //since we are writing to stdout we print rows at the top of
+            //the grid first
+            for (int j = _height - 1 ; j >= 0; j--)
             {
                 for (int i = 0; i < _width; i++)
                 {
@@ -191,7 +196,7 @@ void print_shapes(const vector<Shape>& shapes)
     }
 }
 
-bool find_tesselation(Grid& grid, const vector<Shape>& shapes)
+bool find_space(Grid& grid, const vector<Shape>& shapes)
 {
     for (const auto& shape : shapes)
     {
@@ -228,7 +233,7 @@ int main(int argc, char* argv[])
     }
 
     Grid grid(width, height);
-    if (find_tesselation(grid, shapes))
+    if (find_space(grid, shapes))
         cout << "Solution found:" << endl;
     else
         cout << "No solution:" << endl;
