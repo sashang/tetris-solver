@@ -1,9 +1,11 @@
 #include <iostream>
+#include <list>
 #include <string>
 #include <sstream>
 #include <vector>
 #include <array>
 #include <set>
+#include <algorithm>
 
 using namespace std;
 
@@ -11,6 +13,54 @@ typedef std::array<int, 2> Coordinate;
 
 //Maps the enumerated positions on the imaginary grid to coordinates
 vector<Coordinate> shape_map;
+
+vector<vector<int>> iso_square = {{0, 1, 4, 5}};
+
+//l shape
+vector<vector<int>> iso_l_shape = 
+    {
+        {0, 1, 2, 4}, 
+        {0, 1, 5, 9},
+        {2, 4, 5, 6},
+        {0, 4, 8, 9},
+    };
+
+//reverse l shape
+vector<vector<int>> iso_rl_shape = 
+    {
+        {0, 1, 2, 6}, 
+        {1, 5, 8, 9},
+        {0, 1, 4, 8},
+        {0, 1, 2, 6},
+    };
+
+vector<vector<int>> iso_z_shape = 
+    {
+        {0, 1, 5, 6}, 
+        {1, 4, 5, 8},
+    };
+
+//reverse z shape
+vector<vector<int>> iso_rz_shape = 
+    {
+        {1, 2, 4, 5}, 
+        {0, 4, 5, 9},
+    };
+
+vector<vector<int>> iso_bar = 
+    {
+        {0, 1, 2, 3}, 
+        {0, 4, 8, 12},
+    };
+
+vector<vector<int>> iso_t_shape = 
+    {
+        {0, 1, 2, 5}, 
+        {1, 4, 5, 9},
+        {1, 4, 5, 6},
+        {0, 4, 5, 8},
+    };
+
 
 void generate_shape_map()
 {
@@ -31,6 +81,8 @@ class Shape
         static char _current_colour;
         vector<Coordinate> _layout;
         char _colour;
+        vector<vector<int>> _type;
+        int _iso_idx;
     
         static void NextColour()
         {
@@ -46,7 +98,8 @@ class Shape
 
     public:
         Shape(const string& line) :
-            _colour(_current_colour)
+            _colour(_current_colour),
+            _iso_idx(0)
         {
             stringstream ss(line);
             int a, b, c, d;
@@ -55,18 +108,40 @@ class Shape
             _layout.push_back(shape_map[b]);
             _layout.push_back(shape_map[c]);
             _layout.push_back(shape_map[d]);
+            //find matching shape
+            vector<int> v = {a,b,c,d};
+            if (find(iso_square.begin(), iso_square.end(), v) != iso_square.end())
+                _type = iso_square;
+            else if (find(iso_t_shape.begin(), iso_t_shape.end(), v) != iso_t_shape.end())
+                _type = iso_t_shape;
+            else if (find(iso_l_shape.begin(), iso_l_shape.end(), v) != iso_l_shape.end())
+                _type = iso_l_shape;
+            else if (find(iso_rl_shape.begin(), iso_rl_shape.end(), v) != iso_rl_shape.end())
+                _type = iso_rl_shape;
+            else if (find(iso_z_shape.begin(), iso_z_shape.end(), v) != iso_z_shape.end())
+                _type = iso_z_shape;
+            else if (find(iso_rz_shape.begin(), iso_rz_shape.end(), v) != iso_rz_shape.end())
+                _type = iso_rz_shape;
+            else if (find(iso_bar.begin(), iso_bar.end(), v) != iso_bar.end())
+                _type = iso_bar;
+            
             NextColour();
         }
 
 
-        void Rotate90()
+        void Rotate()
         {
-            for (auto& elem : _layout)
-            {
-                int temp = elem[0];
-                elem[0] = -1 * elem[1];
-                elem[1] =  temp;
-            }
+            if (_iso_idx == _type.size())
+                _iso_idx = 0;
+            else
+                _iso_idx++;
+
+            _layout.clear();
+            _layout.push_back(shape_map[a]);
+            _layout.push_back(shape_map[b]);
+            _layout.push_back(shape_map[c]);
+            _layout.push_back(shape_map[d]);
+            _iso_idx;
         }
         
         const Coordinate& GetCoord(int i) const
@@ -97,6 +172,7 @@ class Grid
         vector<vector<char>> _grid;
         int _width;
         int _height;
+        Coordinate _last_used[4];
 
     public:
         Grid(int width, int height) :
@@ -110,6 +186,18 @@ class Grid
                 {
                     e1 = '*';
                 }
+            }
+        }
+
+        void RemoveLast()
+        {
+            int x, y, i;
+
+            for (i = 0; i < 4; i++)
+            {
+                x = _last_used[i][0];
+                y = _last_used[i][1];
+                _grid[x][y] = '*';
             }
         }
 
@@ -163,6 +251,8 @@ class Grid
                             int l = c[0] + i;
                             int m = c[1] + j;
                             _grid[l][m] = s.GetColour();
+                            _last_used[k][0] = l;
+                            _last_used[k][1] = m;
                         }
                         return true;
                     }
@@ -187,25 +277,37 @@ class Grid
 };
 
 
-void print_shapes(const vector<Shape>& shapes)
-{
-    for (const auto& elem : shapes)
-    {
-        elem.Print();
-        cout << endl;
-    }
-}
 
-bool find_space(Grid& grid, const vector<Shape>& shapes)
+bool find_space(Grid& grid, vector<Shape> shapes)
 {
-    for (const auto& shape : shapes)
+    vector<Shape>::iterator it;
+    if (shapes.empty())
+        return true;
+    
+    for (it = shapes.begin(); it != shapes.end(); ++it)
     {
-        if (!grid.Insert(shape))
+        if (grid.Insert(*it))
         {
-            return false;
+            vector<Shape>::iterator it1;
+            vector<Shape> remaining;
+            for (it1 = shapes.begin(); it1 != shapes.end(); ++it1)
+            {
+                if (it1 != it)
+                {
+                    remaining.push_back(*it1);
+                }
+            }
+            if (find_space(grid, remaining))
+            {
+                return true;
+            }
         }
+        //about to try the next inserting the next shape. Therefore the previous
+        //shape and the path it took must have failed. Therefore remove it from
+        //the grid.
+        grid.RemoveLast();
     }
-    return true;
+    return false;
 }
 
 int main(int argc, char* argv[])
