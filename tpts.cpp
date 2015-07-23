@@ -129,19 +129,24 @@ class Shape
         }
 
 
-        void Rotate()
+        bool Rotate()
         {
-            if (_iso_idx == _type.size())
-                _iso_idx = 0;
-            else
-                _iso_idx++;
+            _iso_idx++;
 
+            if (_iso_idx == _type.size())
+                return false;
+
+            int a, b ,c ,d;
+            a = _type[_iso_idx][0];
+            b = _type[_iso_idx][1];
+            c = _type[_iso_idx][2];
+            d = _type[_iso_idx][3];
             _layout.clear();
             _layout.push_back(shape_map[a]);
             _layout.push_back(shape_map[b]);
             _layout.push_back(shape_map[c]);
             _layout.push_back(shape_map[d]);
-            _iso_idx;
+            return true;
         }
         
         const Coordinate& GetCoord(int i) const
@@ -286,26 +291,29 @@ bool find_space(Grid& grid, vector<Shape> shapes)
     
     for (it = shapes.begin(); it != shapes.end(); ++it)
     {
-        if (grid.Insert(*it))
+        do 
         {
-            vector<Shape>::iterator it1;
-            vector<Shape> remaining;
-            for (it1 = shapes.begin(); it1 != shapes.end(); ++it1)
+            if (grid.Insert(*it))
             {
-                if (it1 != it)
+                vector<Shape>::iterator it1;
+                vector<Shape> remaining;
+                for (it1 = shapes.begin(); it1 != shapes.end(); ++it1)
                 {
-                    remaining.push_back(*it1);
+                    if (it1 != it)
+                    {
+                        remaining.push_back(*it1);
+                    }
                 }
+                if (find_space(grid, remaining))
+                {
+                    return true;
+                }
+                //about to try the next inserting the next shape. Therefore the previous
+                //shape and the path it took must have failed. Therefore remove it from
+                //the grid.
+                grid.RemoveLast();
             }
-            if (find_space(grid, remaining))
-            {
-                return true;
-            }
-        }
-        //about to try the next inserting the next shape. Therefore the previous
-        //shape and the path it took must have failed. Therefore remove it from
-        //the grid.
-        grid.RemoveLast();
+        } while (it->Rotate());
     }
     return false;
 }
