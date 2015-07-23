@@ -1,4 +1,5 @@
 #include <iostream>
+#include <unistd.h>
 #include <list>
 #include <string>
 #include <sstream>
@@ -8,7 +9,8 @@
 #include <algorithm>
 
 using namespace std;
-
+bool animate = false;
+bool debug = false;
 typedef std::array<int, 2> Coordinate;
 
 //Maps the enumerated positions on the imaginary grid to coordinates
@@ -73,6 +75,12 @@ void generate_shape_map()
             shape_map[j*4 + i] = Coordinate({i, j});
         }
     }
+}
+
+std::ostream& debug_output(const std::ostream& stream)
+{
+    if (debug)
+        return cout << stream.rdbuf();
 }
 
 class Shape
@@ -177,7 +185,6 @@ class Grid
         vector<vector<char>> _grid;
         int _width;
         int _height;
-        Coordinate _last_used[4];
 
     public:
         Grid(int width, int height) :
@@ -194,19 +201,19 @@ class Grid
             }
         }
 
-        void RemoveLast()
+        void Remove(vector<Coordinate>& coords)
         {
             int x, y, i;
 
-            for (i = 0; i < 4; i++)
+            for (i = 0; i < coords.size(); i++)
             {
-                x = _last_used[i][0];
-                y = _last_used[i][1];
+                x = coords[i][0];
+                y = coords[i][1];
                 _grid[x][y] = '*';
             }
         }
 
-        bool Insert(const Shape& s)
+        bool Insert(const Shape& s, vector<Coordinate>& insertion_coords)
         {
             int i,j;
             int k = 0;
@@ -240,7 +247,7 @@ class Grid
                             break;
                         }
                         
-                        cout << "spot is empty" << endl;
+                        debug_output( cout << "spot is empty" << endl);
 
                         fits = true;
                     }
@@ -256,8 +263,7 @@ class Grid
                             int l = c[0] + i;
                             int m = c[1] + j;
                             _grid[l][m] = s.GetColour();
-                            _last_used[k][0] = l;
-                            _last_used[k][1] = m;
+                            insertion_coords.push_back(Coordinate({l, m}));
                         }
                         return true;
                     }
@@ -293,8 +299,15 @@ bool find_space(Grid& grid, vector<Shape> shapes)
     {
         do 
         {
-            if (grid.Insert(*it))
+            vector<Coordinate> insertion_coords;
+            if (grid.Insert(*it, insertion_coords))
             {
+                if (animate)
+                {
+                    grid.Print();
+                    sleep(1);
+                }
+
                 vector<Shape>::iterator it1;
                 vector<Shape> remaining;
                 for (it1 = shapes.begin(); it1 != shapes.end(); ++it1)
@@ -311,11 +324,32 @@ bool find_space(Grid& grid, vector<Shape> shapes)
                 //about to try the next inserting the next shape. Therefore the previous
                 //shape and the path it took must have failed. Therefore remove it from
                 //the grid.
-                grid.RemoveLast();
+                grid.Remove(insertion_coords);
             }
         } while (it->Rotate());
     }
     return false;
+}
+
+void process_cmdline(int argc, char* argv[])
+{
+    if (argc > 1)
+    {
+        for (int i = 1; i < argc; i++)
+        {
+            string arg(argv[1]);
+            if (arg == "-a" || arg == "--animate")
+            {
+                animate = true;
+                cout << "Animating!!" << endl;
+            }
+            if (arg == "-d" || arg == "--debug")
+            {
+                debug = true;
+                cout << "Debugging!!" << endl;
+            }
+        }
+    }
 }
 
 int main(int argc, char* argv[])
@@ -325,6 +359,7 @@ int main(int argc, char* argv[])
     uint32_t count = 0;
     vector<Shape> shapes;
 
+    process_cmdline(argc, argv);
     generate_shape_map();
     while (getline(cin, line))
     {
