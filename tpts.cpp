@@ -133,7 +133,7 @@ class Shape
         {
             _iso_idx++;
 
-            if (_iso_idx == _type.size())
+            if (_iso_idx >= _type.size())
                 return false;
 
             int a, b ,c ,d;
