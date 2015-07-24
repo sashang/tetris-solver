@@ -32,8 +32,8 @@ vector<vector<int>> iso_rl_shape =
     {
         {0, 1, 2, 6}, 
         {1, 5, 8, 9},
+        {0, 4, 5, 6},
         {0, 1, 4, 8},
-        {0, 1, 2, 6},
     };
 
 vector<vector<int>> iso_z_shape = 
