@@ -77,12 +77,6 @@ void generate_shape_map()
     }
 }
 
-std::ostream& debug_output(const std::ostream& stream)
-{
-    if (debug)
-        return cout << stream.rdbuf();
-}
-
 class Shape
 {
     private:
@@ -231,14 +225,12 @@ class Grid
                         //check if it lies outside the grid
                         int l = c[0] + i;
                         int m = c[1] + j;
-                        cout  << " l = " << l << " m =  " << m << endl;
                         if (l < 0 || l > _width - 1  || m < 0 || m > _height - 1)
                         {
                             fits = false;
                             break;
                         }
                         
-                        cout << "in bounds" << endl;
 
                         //check that this grid spot is empty
                         if (_grid[l][m] != '*')
@@ -247,7 +239,6 @@ class Grid
                             break;
                         }
                         
-                        debug_output( cout << "spot is empty" << endl);
 
                         fits = true;
                     }
@@ -305,6 +296,7 @@ bool find_space(Grid& grid, vector<Shape> shapes)
                 if (animate)
                 {
                     grid.Print();
+                    cout << endl;
                     sleep(1);
                 }
 
@@ -341,12 +333,6 @@ void process_cmdline(int argc, char* argv[])
             if (arg == "-a" || arg == "--animate")
             {
                 animate = true;
-                cout << "Animating!!" << endl;
-            }
-            if (arg == "-d" || arg == "--debug")
-            {
-                debug = true;
-                cout << "Debugging!!" << endl;
             }
         }
     }
@@ -378,9 +364,15 @@ int main(int argc, char* argv[])
     }
 
     Grid grid(width, height);
-    if (find_space(grid, shapes))
+    bool result = find_space(grid, shapes);
+    if (result)
         cout << "Solution found:" << endl;
     else
         cout << "No solution:" << endl;
     grid.Print();
+    if (result)
+        return 0;
+    else
+        return 1;
 }
+
