@@ -230,6 +230,27 @@ class Grid
             }
         }
 
+        bool CheckHoles()
+        {
+            int i, j;
+            for (i = 1; i < _width-1; i++)
+            {
+                for (j = 1; j < _height-1; j++)
+                {
+                    if (_grid[i][j] == '*')
+                    {
+                        //check surrounding locations for another empty spot
+                        if (_grid[i+1][j] != '*' && _grid[i-1][j] != '*' &&
+                            _grid[i][j+1] != '*' && _grid[i][j-1] != '*')
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
         void Remove(vector<Coordinate>& coords)
         {
             int x, y, i;
@@ -330,6 +351,11 @@ bool find_space(Grid& grid, vector<Shape> shapes)
             vector<Coordinate> insertion_coords;
             if (grid.Insert(*it, insertion_coords))
             {
+                if (grid.CheckHoles())
+                {
+                    grid.Remove(insertion_coords);
+                    continue;
+                }
                 if (animate)
                 {
                     grid.Print();
