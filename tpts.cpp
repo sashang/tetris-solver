@@ -1,5 +1,6 @@
 #include <iostream>
 #include <unistd.h>
+#include <exception>
 #include <list>
 #include <string>
 #include <sstream>
@@ -77,6 +78,28 @@ void generate_shape_map()
     }
 }
 
+class ShapeCreationFailed :
+    public exception
+{
+    private:
+        std::string _shape;
+        std::string _msg;
+
+    public:
+        ShapeCreationFailed(const std::string& shape) :
+            _shape(shape)
+        {
+            _msg = "failed to match shape ";
+            _msg += _shape;
+            _msg += " with a template";
+        }
+
+        virtual const char* what() const noexcept
+        {
+            return _msg.c_str();
+        }
+};
+
 class Shape
 {
     private:
@@ -126,10 +149,20 @@ class Shape
                 _type = iso_rz_shape;
             else if (find(iso_bar.begin(), iso_bar.end(), v) != iso_bar.end())
                 _type = iso_bar;
+            else
+            {
+                std::stringstream ss;
+                ss << a << " " << b << " " << c << " " << d;
+                throw ShapeCreationFailed(ss.str());
+            }
             
             NextColour();
         }
 
+        void ResetRotation()
+        {
+            _iso_idx = 0; 
+        }
 
         bool Rotate()
         {
@@ -150,6 +183,8 @@ class Shape
             _layout.push_back(shape_map[d]);
             return true;
         }
+
+        int GetRotations() { return _type.size(); }
         
         const Coordinate& GetCoord(int i) const
         {
@@ -284,7 +319,9 @@ bool find_space(Grid& grid, vector<Shape> shapes)
 {
     vector<Shape>::iterator it;
     if (shapes.empty())
+    {
         return true;
+    }
     
     for (it = shapes.begin(); it != shapes.end(); ++it)
     {
@@ -306,6 +343,7 @@ bool find_space(Grid& grid, vector<Shape> shapes)
                 {
                     if (it1 != it)
                     {
+                        it1->ResetRotation();
                         remaining.push_back(*it1);
                     }
                 }
@@ -345,34 +383,49 @@ int main(int argc, char* argv[])
     uint32_t count = 0;
     vector<Shape> shapes;
 
-    process_cmdline(argc, argv);
-    generate_shape_map();
-    while (getline(cin, line))
+    try
     {
-        //1st line is the grid dimensions
-        if (count == 0)
+        process_cmdline(argc, argv);
+        generate_shape_map();
+        while (getline(cin, line))
         {
-            stringstream ss(line);
-            ss >> width >> height;
+            //1st line is the grid dimensions
+            if (count == 0)
+            {
+                stringstream ss(line);
+                ss >> width >> height;
+            }
+            else
+            {
+                Shape s(line);
+                shapes.push_back(s);
+            }
+            count++;
         }
-        else
+        vector<Shape>::iterator it;
+        int sum = 1;
+        for (it = shapes.begin(); it != shapes.end(); ++it)
         {
-            Shape s(line);
-            shapes.push_back(s);
-        }
-        count++;
-    }
+            sum *= it->GetRotations();
 
-    Grid grid(width, height);
-    bool result = find_space(grid, shapes);
-    if (result)
-        cout << "Solution found:" << endl;
-    else
-        cout << "No solution:" << endl;
-    grid.Print();
-    if (result)
-        return 0;
-    else
+        }
+        cout << "Possible combinations = " << sum << endl;
+        Grid grid(width, height);
+        bool result = find_space(grid, shapes);
+        if (result)
+            cout << "Solution found:" << endl;
+        else
+            cout << "No solution:" << endl;
+        grid.Print();
+        if (result)
+            return 0;
+        else
+            return 1;
+    }
+    catch (const ShapeCreationFailed& ex)
+    {
+        cout << ex.what() << endl;
         return 1;
+    }
 }
 
