@@ -106,7 +106,8 @@ class Shape
         static char _current_colour;
         vector<Coordinate> _layout;
         char _colour;
-        vector<vector<int>> _type;
+        vector<vector<int>>* _type;
+        vector<vector<int>>::iterator _it_rotation;
         int _iso_idx;
     
         static void NextColour()
@@ -135,56 +136,51 @@ class Shape
             _layout.push_back(shape_map[d]);
             //find matching shape
             vector<int> v = {a,b,c,d};
-            if (find(iso_square.begin(), iso_square.end(), v) != iso_square.end())
-                _type = iso_square;
-            else if (find(iso_t_shape.begin(), iso_t_shape.end(), v) != iso_t_shape.end())
-                _type = iso_t_shape;
-            else if (find(iso_l_shape.begin(), iso_l_shape.end(), v) != iso_l_shape.end())
-                _type = iso_l_shape;
-            else if (find(iso_rl_shape.begin(), iso_rl_shape.end(), v) != iso_rl_shape.end())
-                _type = iso_rl_shape;
-            else if (find(iso_z_shape.begin(), iso_z_shape.end(), v) != iso_z_shape.end())
-                _type = iso_z_shape;
-            else if (find(iso_rz_shape.begin(), iso_rz_shape.end(), v) != iso_rz_shape.end())
-                _type = iso_rz_shape;
-            else if (find(iso_bar.begin(), iso_bar.end(), v) != iso_bar.end())
-                _type = iso_bar;
+            vector<vector<int>>::iterator it;
+            if ((it = find(iso_square.begin(), iso_square.end(), v)) != iso_square.end())
+                _type = &iso_square;
+            else if ((it = find(iso_t_shape.begin(), iso_t_shape.end(), v)) != iso_t_shape.end())
+                _type = &iso_t_shape;
+            else if ((it = find(iso_l_shape.begin(), iso_l_shape.end(), v)) != iso_l_shape.end())
+                _type = &iso_l_shape;
+            else if ((it = find(iso_rl_shape.begin(), iso_rl_shape.end(), v)) != iso_rl_shape.end())
+                _type = &iso_rl_shape;
+            else if ((it = find(iso_z_shape.begin(), iso_z_shape.end(), v)) != iso_z_shape.end())
+                _type = &iso_z_shape;
+            else if ((it = find(iso_rz_shape.begin(), iso_rz_shape.end(), v)) != iso_rz_shape.end())
+                _type = &iso_rz_shape;
+            else if ((it = find(iso_bar.begin(), iso_bar.end(), v)) != iso_bar.end())
+                _type = &iso_bar;
             else
             {
                 std::stringstream ss;
                 ss << a << " " << b << " " << c << " " << d;
                 throw ShapeCreationFailed(ss.str());
             }
-            
+            _it_rotation = it;
             NextColour();
         }
 
-        void ResetRotation()
+        void Rotate()
         {
-            _iso_idx = 0; 
-        }
+            _it_rotation++;
 
-        bool Rotate()
-        {
-            _iso_idx++;
-
-            if (_iso_idx >= _type.size())
-                return false;
+            if (_it_rotation == _type->end())
+                _it_rotation = _type->begin();
 
             int a, b ,c ,d;
-            a = _type[_iso_idx][0];
-            b = _type[_iso_idx][1];
-            c = _type[_iso_idx][2];
-            d = _type[_iso_idx][3];
+            a = (*_it_rotation)[0];
+            b = (*_it_rotation)[1];
+            c = (*_it_rotation)[2];
+            d = (*_it_rotation)[3];
             _layout.clear();
             _layout.push_back(shape_map[a]);
             _layout.push_back(shape_map[b]);
             _layout.push_back(shape_map[c]);
             _layout.push_back(shape_map[d]);
-            return true;
         }
 
-        int GetRotations() { return _type.size(); }
+        int GetRotations() { return _type->size(); }
         
         const Coordinate& GetCoord(int i) const
         {
@@ -230,18 +226,20 @@ class Grid
             }
         }
 
-        bool CheckHoles()
+        bool CheckHoles(int i, int j, int depth)
         {
-            int i, j;
-            for (i = 1; i < _width-1; i++)
+            if (depth == 0)
+                return false;
+            int x, y;
+            for (x = i; i < _width-1; x++)
             {
-                for (j = 1; j < _height-1; j++)
+                for (y = j; j < _height-1; y++)
                 {
-                    if (_grid[i][j] == '*')
+                    if (_grid[x][y] == '*')
                     {
-                        //check surrounding locations for another empty spot
-                        if (_grid[i+1][j] != '*' && _grid[i-1][j] != '*' &&
-                            _grid[i][j+1] != '*' && _grid[i][j-1] != '*')
+                        //check surroundxng locatxons for another empty spot
+                        if (_grid[x+1][y] != '*' && _grid[x-1][y] != '*' &&
+                            _grid[x][y+1] != '*' && _grid[x][y-1] != '*')
                         {
                             return true;
                         }
@@ -263,7 +261,7 @@ class Grid
             }
         }
 
-        bool Insert(const Shape& s, vector<Coordinate>& insertion_coords)
+        bool Insert(Shape& s, vector<Coordinate>& insertion_coords)
         {
             int i,j;
             int k = 0;
@@ -272,50 +270,60 @@ class Grid
             {
                 for (i = 0; i < _width; i++)
                 {
-                    fits = false;
-                    for (k = 0; k < 4; k++)
+                    //find the 1st empty block
+                    if (_grid[i][j] == '*')
                     {
-                        //get block from shape
-                        Coordinate c(s.GetCoord(k));
-
-                        //check if it lies outside the grid
-                        int l = c[0] + i;
-                        int m = c[1] + j;
-                        if (l < 0 || l > _width - 1  || m < 0 || m > _height - 1)
+                        int rotate_count = 1;
+                        do 
                         {
-                            fits = false;
-                            break;
-                        }
-                        
-
-                        //check that this grid spot is empty
-                        if (_grid[l][m] != '*')
-                        {
-                            fits = false;
-                            break;
-                        }
-                        
-
-                        fits = true;
-                    }
-
-                    if (fits)
-                    {
-                        //if we get here the shape fits so mark the spaces in 
-                        //the grid as occupied.
-                        for (k = 0; k < 4; k++)
-                        {
-                            //get block from shape
-                            Coordinate c(s.GetCoord(k));
-                            int l = c[0] + i;
-                            int m = c[1] + j;
+                            int l = i;
+                            int m = j;
+                            insertion_coords.push_back(Coordinate({i, j}));
                             _grid[l][m] = s.GetColour();
-                            insertion_coords.push_back(Coordinate({l, m}));
-                        }
-                        return true;
+                            for (k = 1; k < 4; k++)
+                            {
+                                //get block from shape
+                                Coordinate a(s.GetCoord(k -1));
+                                Coordinate b(s.GetCoord(k));
+                                int dx = b[0] - a[0];
+                                int dy = b[1] - a[1];
+                                cout << "dx = " << dx << "dy = " << dy << endl;
+                                //check if it lies outside the grid
+                                l += dx;
+                                m += dy;
+                                if (l < 0 || l > _width - 1  || m < 0 || m > _height - 1)
+                                {
+                                    Remove(insertion_coords);
+                                    insertion_coords.clear();
+                                    fits = false;
+                                    break;
+                                }
+
+                                //check that this grid spot is empty
+                                if (_grid[l][m] != '*')
+                                {
+                                    Remove(insertion_coords);
+                                    insertion_coords.clear();
+                                    fits = false;
+                                    break;
+                                }
+
+                                fits = true;
+                                insertion_coords.push_back(Coordinate({l ,m}));
+                                _grid[l][m] = s.GetColour();
+                            }
+                            if (fits)
+                            {
+                                return true;
+                            }
+                            cout << "rotating inner: " << i << " " << j << endl;
+                            s.Rotate();
+                            rotate_count++;
+                        } while (rotate_count < s.GetRotations());
                     }
                 }
             }
+            //no empty block
             return false;
         }
 
@@ -346,16 +354,12 @@ bool find_space(Grid& grid, vector<Shape> shapes)
     
     for (it = shapes.begin(); it != shapes.end(); ++it)
     {
+        int rotate_count = 1;
         do 
         {
             vector<Coordinate> insertion_coords;
             if (grid.Insert(*it, insertion_coords))
             {
-                if (grid.CheckHoles())
-                {
-                    grid.Remove(insertion_coords);
-                    continue;
-                }
                 if (animate)
                 {
                     grid.Print();
@@ -369,7 +373,6 @@ bool find_space(Grid& grid, vector<Shape> shapes)
                 {
                     if (it1 != it)
                     {
-                        it1->ResetRotation();
                         remaining.push_back(*it1);
                     }
                 }
@@ -382,7 +385,13 @@ bool find_space(Grid& grid, vector<Shape> shapes)
                 //the grid.
                 grid.Remove(insertion_coords);
             }
-        } while (it->Rotate());
+            else
+            {
+                grid.Remove(insertion_coords);
+            }
+            it->Rotate();
+            rotate_count++;
+        } while (rotate_count < it->GetRotations());
     }
     return false;
 }
@@ -428,14 +437,6 @@ int main(int argc, char* argv[])
             }
             count++;
         }
-        vector<Shape>::iterator it;
-        int sum = 1;
-        for (it = shapes.begin(); it != shapes.end(); ++it)
-        {
-            sum *= it->GetRotations();
-
-        }
-        cout << "Possible combinations = " << sum << endl;
         Grid grid(width, height);
         bool result = find_space(grid, shapes);
         if (result)
